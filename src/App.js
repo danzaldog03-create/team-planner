@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertTriangle, Cloud, Loader2, MessageCircle, Edit2, Download, X } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Cloud, Loader2, MessageCircle, Edit2, Download, X, FileSpreadsheet } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
@@ -128,23 +128,20 @@ export default function App() {
     }
   };
 
-  // 6. Generador de PDF
+  // 6A. Generador de PDF
   const exportarPDF = () => {
     const element = document.getElementById('tabla-reporte');
-    
-    // Función que usa la librería para generar el PDF
     const generar = () => {
       const opt = {
         margin:       0.5,
         filename:     `Reporte_SPEI_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // Horizontal
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } 
       };
       window.html2pdf().set(opt).from(element).save();
     };
 
-    // Cargamos la librería html2pdf dinámicamente si no existe
     if (!window.html2pdf) {
       const script = document.createElement('script');
       script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
@@ -153,6 +150,54 @@ export default function App() {
     } else {
       generar();
     }
+  };
+
+  // 6B. Generador de EXCEL (Formato CSV compatible nativamente)
+  const exportarExcel = () => {
+    // Definimos las columnas (Cabeceras)
+    const headers = ['Fecha', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Quejas', 'Total Operaciones'];
+
+    // Mapeamos los datos de las incidencias
+    const csvRows = incidencias.map(inc => {
+      const [y, m, d] = inc.fecha.split('-');
+      const fechaFormateada = `${d}/${m}/${y}`;
+      // Escapamos las descripciones por si llevan comas (",")
+      const descripcionLimpia = `"${inc.descripcion.replace(/"/g, '""')}"`;
+      
+      return [
+        fechaFormateada,
+        descripcionLimpia,
+        inc.enviadas,
+        inc.recibidas,
+        inc.devoluciones,
+        inc.quejas,
+        inc.totalOperaciones
+      ].join(',');
+    });
+
+    // Añadimos la fila de totales calculados (quitamos las comas de miles para Excel)
+    const filaTotales = [
+      'Total General',
+      '""', // Columna descripción vacía
+      calcularTotal('enviadas').replace(/,/g, ''),
+      calcularTotal('recibidas').replace(/,/g, ''),
+      calcularTotal('devoluciones').replace(/,/g, ''),
+      calcularTotal('quejas').replace(/,/g, ''),
+      calcularTotal('totalOperaciones').replace(/,/g, '')
+    ].join(',');
+
+    // Agregamos un carácter especial BOM al inicio para que Excel detecte bien los acentos
+    const csvContent = '\uFEFF' + headers.join(',') + '\n' + csvRows.join('\n') + '\n' + filaTotales;
+
+    // Disparamos la descarga
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Reporte_SPEI_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // 7. Reporte WhatsApp
@@ -250,18 +295,28 @@ export default function App() {
           </form>
         </div>
 
-        {/* Botonera de Exportación */}
-        <div className="flex justify-end">
+        {/* --- NUEVO: Botonera de Exportación --- */}
+        <div className="flex justify-end gap-3">
+          {/* Botón Excel */}
+          <button 
+            onClick={exportarExcel} 
+            disabled={incidencias.length === 0}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded shadow-md transition-colors disabled:opacity-50"
+          >
+            <FileSpreadsheet size={16} /> Excel
+          </button>
+          
+          {/* Botón PDF */}
           <button 
             onClick={exportarPDF} 
             disabled={incidencias.length === 0}
             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded shadow-md transition-colors disabled:opacity-50"
           >
-            <Download size={16} /> Exportar a PDF
+            <Download size={16} /> PDF
           </button>
         </div>
 
-        {/* CONTENEDOR DE LA TABLA A EXPORTAR */}
+        {/* CONTENEDOR DE LA TABLA */}
         <div id="tabla-reporte" className="bg-white rounded shadow-sm border border-slate-200 overflow-hidden p-2">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px] border-collapse bg-white">
@@ -279,7 +334,7 @@ export default function App() {
                   <th className="border border-slate-600 p-2">Afectación Devoluciones</th>
                   <th className="border border-slate-600 p-2">Quejas</th>
                   <th className="border border-slate-600 p-2">Total Operaciones</th>
-                  {/* Esta columna se oculta al imprimir/exportar porque tiene los botones */}
+                  {/* Se oculta al imprimir PDF */}
                   <th className="border border-slate-600 p-2 w-20" data-html2canvas-ignore>Acciones</th>
                 </tr>
               </thead>
@@ -301,7 +356,6 @@ export default function App() {
                         <td className="border border-slate-300 p-2">{inc.quejas}</td>
                         <td className="border border-slate-300 p-2">{inc.totalOperaciones}</td>
                         
-                        {/* Columna ignorada por el PDF */}
                         <td className="border border-slate-300 p-1" data-html2canvas-ignore>
                           <div className="flex justify-center gap-2">
                             <button onClick={() => iniciarEdicion(inc)} className="text-blue-500 hover:text-blue-700 p-1 rounded" title="Editar">
