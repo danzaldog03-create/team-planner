@@ -114,12 +114,17 @@ export default function App() {
     }
   };
 
-  const incidenciasFiltradas = incidencias.filter(inc => 
-    inc.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    inc.fecha.includes(searchTerm)
-  );
+  const incidenciasFiltradas = incidencias.filter(inc => {
+    // Convertimos la fecha interna (YYYY-MM-DD) al formato visual (DD/MM/YYYY) para que el buscador la detecte
+    const [y, m, d] = inc.fecha.split('-');
+    const fechaFormateada = `${d}/${m}/${y}`;
+    
+    return inc.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           inc.fecha.includes(searchTerm) || 
+           fechaFormateada.includes(searchTerm);
+  });
 
-  // --- NUEVA OPCIÓN: IMPRESIÓN NATIVA ---
+  // --- IMPRESIÓN NATIVA ---
   const imprimirNativo = () => {
     window.print();
   };
@@ -167,9 +172,20 @@ export default function App() {
   };
 
   return (
-    // Agregamos print:bg-white para asegurar fondo blanco al imprimir
     <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-800 print:bg-white print:h-auto print:block">
       
+      {/* 🟢 MAGIA AQUÍ: Forzamos al navegador a imprimir los colores de fondo */}
+      <style>
+        {`
+          @media print {
+            body {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
+        `}
+      </style>
+
       {/* Header Fijo (Se oculta al imprimir con print:hidden) */}
       <div className="bg-[#0f2441] text-white px-4 pt-6 pb-4 flex justify-between items-center shadow-md z-20 print:hidden">
         <div>
@@ -277,33 +293,33 @@ export default function App() {
         </div>
 
         {/* ========================================================= */}
-        {/* ÁREA DEL REPORTE (Ajustado para verse bien en hoja A4)    */}
+        {/* ÁREA DEL REPORTE (Ajustado para verse a todo color en PDF)*/}
         {/* ========================================================= */}
         <div className="bg-slate-100 p-2 space-y-4 print:bg-white print:p-0">
           
           {/* Título Oficial del Reporte */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center print:border-none print:shadow-none print:px-0">
              <div>
-                <h2 className="text-xl font-bold text-[#0f2441] print:text-2xl print:text-black">Reporte de Incidencias SPEI</h2>
-                <p className="text-sm text-slate-500 print:text-black">Generado el: {new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <h2 className="text-xl font-bold text-[#0f2441] print:text-2xl">Reporte de Incidencias SPEI</h2>
+                <p className="text-sm text-slate-500">Generado el: {new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
              </div>
              {searchTerm && <div className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold border border-yellow-200 print:hidden">Filtro Activo</div>}
           </div>
 
-          {/* Tarjetas KPI */}
+          {/* Tarjetas KPI (A color en PDF) */}
           {!loading && incidenciasFiltradas.length > 0 && (
-            <div className="grid grid-cols-3 gap-3 print:gap-1">
-               <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center print:border-gray-300 print:shadow-none print:p-2">
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px] print:text-gray-600">Enviadas</p>
-                 <p className="text-2xl font-bold text-blue-600 print:text-lg print:text-black">{calcularTotal('enviadas')}</p>
+            <div className="grid grid-cols-3 gap-3 print:gap-2">
+               <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center print:shadow-none print:p-2">
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px]">Enviadas</p>
+                 <p className="text-2xl font-bold text-blue-600 print:text-lg">{calcularTotal('enviadas')}</p>
                </div>
-               <div className="bg-white p-4 rounded-xl border border-orange-200 shadow-sm text-center print:border-gray-300 print:shadow-none print:p-2">
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px] print:text-gray-600">Recibidas</p>
-                 <p className="text-2xl font-bold text-orange-600 print:text-lg print:text-black">{calcularTotal('recibidas')}</p>
+               <div className="bg-white p-4 rounded-xl border border-orange-200 shadow-sm text-center print:shadow-none print:p-2">
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px]">Recibidas</p>
+                 <p className="text-2xl font-bold text-orange-600 print:text-lg">{calcularTotal('recibidas')}</p>
                </div>
-               <div className="bg-white p-4 rounded-xl border border-red-200 shadow-sm text-center print:border-gray-300 print:shadow-none print:p-2">
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px] print:text-gray-600">Quejas</p>
-                 <p className="text-2xl font-bold text-red-600 print:text-lg print:text-black">{calcularTotal('quejas')}</p>
+               <div className="bg-white p-4 rounded-xl border border-red-200 shadow-sm text-center print:shadow-none print:p-2">
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px]">Quejas</p>
+                 <p className="text-2xl font-bold text-red-600 print:text-lg">{calcularTotal('quejas')}</p>
                </div>
             </div>
           )}
@@ -311,23 +327,23 @@ export default function App() {
           {/* Contenedor de la Tabla */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
             
-            {/* Se elimina el overflow-x-auto nativamente al imprimir (print:overflow-visible) para que la tabla use el ancho de la hoja completa */}
+            {/* print:overflow-visible permite que la tabla no se corte en el PDF */}
             <div className="overflow-x-auto print:overflow-visible">
               <table className="w-full min-w-[900px] print:min-w-full border-collapse bg-white">
                 <thead>
-                  <tr className="bg-[#1a365d] text-white text-[10px] uppercase tracking-wider text-center print:bg-gray-200 print:text-black print:text-[9px]">
-                    <th className="border border-slate-600 p-3 w-24 print:border-gray-400 print:p-1">Fecha</th>
-                    <th className="border border-slate-600 p-3 min-w-[250px] print:border-gray-400 print:p-1">Descripción</th>
-                    <th className="border border-slate-600 p-3 print:border-gray-400 print:p-1">Enviadas</th>
-                    <th className="border border-slate-600 p-3 print:border-gray-400 print:p-1">Recibidas</th>
-                    <th className="border border-slate-600 p-3 print:border-gray-400 print:p-1">Devoluciones</th>
-                    <th className="border border-slate-600 p-3 print:border-gray-400 print:p-1">Quejas</th>
-                    <th className="border border-slate-600 p-3 print:border-gray-400 print:p-1">Total Op.</th>
-                    {/* Se oculta la columna acciones al imprimir */}
+                  {/* Fila Azul Marino en PDF */}
+                  <tr className="bg-[#1a365d] text-white text-[10px] uppercase tracking-wider text-center print:text-[9px]">
+                    <th className="border border-slate-600 p-3 w-24 print:p-1">Fecha</th>
+                    <th className="border border-slate-600 p-3 min-w-[250px] print:p-1">Descripción</th>
+                    <th className="border border-slate-600 p-3 print:p-1">Enviadas</th>
+                    <th className="border border-slate-600 p-3 print:p-1">Recibidas</th>
+                    <th className="border border-slate-600 p-3 print:p-1">Devoluciones</th>
+                    <th className="border border-slate-600 p-3 print:p-1">Quejas</th>
+                    <th className="border border-slate-600 p-3 print:p-1">Total Op.</th>
                     <th className="border border-slate-600 p-3 w-20 print:hidden">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white text-sm text-slate-700 text-center print:text-[10px] print:text-black">
+                <tbody className="bg-white text-sm text-slate-700 text-center print:text-[10px]">
                   {loading ? (
                     <tr><td colSpan="8" className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr>
                   ) : incidenciasFiltradas.length === 0 ? (
@@ -337,15 +353,15 @@ export default function App() {
                       const [y, m, d] = inc.fecha.split('-');
                       return (
                         <tr key={inc.id} className={`${editingId === inc.id ? 'bg-blue-50' : 'hover:bg-slate-50'} transition-colors print:bg-white print:hover:bg-white`}>
-                          <td className="border border-slate-300 p-2 print:border-gray-400 print:p-1">{d}/{m}/{y}</td>
-                          <td className="border border-slate-300 p-2 text-left print:border-gray-400 print:p-1">{inc.descripcion}</td>
-                          <td className="border border-slate-300 p-2 font-medium print:border-gray-400 print:p-1">{inc.enviadas}</td>
-                          <td className="border border-slate-300 p-2 font-medium print:border-gray-400 print:p-1">{inc.recibidas}</td>
-                          <td className="border border-slate-300 p-2 print:border-gray-400 print:p-1">{inc.devoluciones}</td>
-                          <td className="border border-slate-300 p-2 print:border-gray-400 print:p-1">{inc.quejas}</td>
-                          <td className="border border-slate-300 p-2 print:border-gray-400 print:p-1">{inc.totalOperaciones}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{d}/{m}/{y}</td>
+                          <td className="border border-slate-300 p-2 text-left print:p-1">{inc.descripcion}</td>
+                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.enviadas}</td>
+                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.recibidas}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{inc.devoluciones}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{inc.quejas}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{inc.totalOperaciones}</td>
                           
-                          {/* Botones de acción ocultos al imprimir */}
+                          {/* Botones ocultos al imprimir */}
                           <td className="border border-slate-300 p-1 print:hidden">
                             <div className="flex justify-center gap-2">
                               <button onClick={() => iniciarEdicion(inc)} className="text-blue-500 hover:bg-blue-100 p-1.5 rounded transition-colors" title="Editar"><Edit2 size={16}/></button>
@@ -357,15 +373,15 @@ export default function App() {
                     })
                   )}
                   
-                  {/* Fila de Totales */}
+                  {/* Fila de Totales (Conserva su fondo azul oscuro en PDF) */}
                   {!loading && incidenciasFiltradas.length > 0 && (
-                    <tr className="bg-[#0f2441] text-white font-bold text-center text-sm print:bg-gray-200 print:text-black print:text-[10px]">
-                      <td colSpan="2" className="border border-slate-600 p-3 uppercase text-right pr-4 print:border-gray-400 print:p-1">Total General</td>
-                      <td className="border border-slate-600 p-3 text-blue-200 print:border-gray-400 print:text-black print:p-1">{calcularTotal('enviadas')}</td>
-                      <td className="border border-slate-600 p-3 text-orange-200 print:border-gray-400 print:text-black print:p-1">{calcularTotal('recibidas')}</td>
-                      <td className="border border-slate-600 p-3 print:border-gray-400 print:p-1">{calcularTotal('devoluciones')}</td>
-                      <td className="border border-slate-600 p-3 text-red-200 print:border-gray-400 print:text-black print:p-1">{calcularTotal('quejas')}</td>
-                      <td className="border border-slate-600 p-3 print:border-gray-400 print:p-1">{calcularTotal('totalOperaciones')}</td>
+                    <tr className="bg-[#0f2441] text-white font-bold text-center text-sm print:text-[10px]">
+                      <td colSpan="2" className="border border-slate-600 p-3 uppercase text-right pr-4 print:p-1">Total General</td>
+                      <td className="border border-slate-600 p-3 text-blue-200 print:p-1">{calcularTotal('enviadas')}</td>
+                      <td className="border border-slate-600 p-3 text-orange-200 print:p-1">{calcularTotal('recibidas')}</td>
+                      <td className="border border-slate-600 p-3 print:p-1">{calcularTotal('devoluciones')}</td>
+                      <td className="border border-slate-600 p-3 text-red-200 print:p-1">{calcularTotal('quejas')}</td>
+                      <td className="border border-slate-600 p-3 print:p-1">{calcularTotal('totalOperaciones')}</td>
                       <td className="border border-slate-600 p-3 print:hidden"></td>
                     </tr>
                   )}
