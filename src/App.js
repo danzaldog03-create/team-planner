@@ -33,6 +33,7 @@ export default function App() {
   
   // Estados del Formulario
   const [fecha, setFecha] = useState('');
+  const [duracion, setDuracion] = useState(''); // <-- NUEVO CAMPO: Duración
   const [descripcion, setDescripcion] = useState('');
   const [enviadas, setEnviadas] = useState('NA');
   const [recibidas, setRecibidas] = useState('0');
@@ -56,7 +57,7 @@ export default function App() {
   // 2. Sincronización con Base de Datos
   useEffect(() => {
     if (!user) return;
-    const q = collection(db, 'artifacts', appId, 'users', user.uid, 'incidencias');
+    const q = collection(db, 'artifacts', appId, 'public', 'data', 'incidencias');
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a, b) => b.createdAt - a.createdAt);
@@ -75,15 +76,17 @@ export default function App() {
     }
 
     const data = {
-      fecha, descripcion, enviadas, recibidas, devoluciones, quejas, totalOperaciones
+      fecha, 
+      duracion: duracion || 'No especificada', 
+      descripcion, enviadas, recibidas, devoluciones, quejas, totalOperaciones
     };
 
     try {
       if (editingId) {
-        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'incidencias', editingId);
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'incidencias', editingId);
         await updateDoc(docRef, data);
       } else {
-        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'incidencias'), {
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'incidencias'), {
           ...data, createdAt: Date.now()
         });
       }
@@ -96,32 +99,58 @@ export default function App() {
   };
 
   const iniciarEdicion = (inc) => {
-    setFecha(inc.fecha); setDescripcion(inc.descripcion); setEnviadas(inc.enviadas);
-    setRecibidas(inc.recibidas); setDevoluciones(inc.devoluciones); setQuejas(inc.quejas);
-    setTotalOperaciones(inc.totalOperaciones); setEditingId(inc.id);
-    setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' });
+    setFecha(inc.fecha); 
+    setDuracion(inc.duracion || ''); 
+    setDescripcion(inc.descripcion); 
+    setEnviadas(inc.enviadas);
+    setRecibidas(inc.recibidas); 
+    setDevoluciones(inc.devoluciones); 
+    setQuejas(inc.quejas);
+    setTotalOperaciones(inc.totalOperaciones); 
+    setEditingId(inc.id);
+    setShowForm(true); 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const limpiarFormulario = () => {
-    setFecha(''); setDescripcion(''); setEnviadas('NA'); setRecibidas('0'); 
+    setFecha(''); setDuracion(''); setDescripcion(''); setEnviadas('NA'); setRecibidas('0'); 
     setDevoluciones('-'); setQuejas('0'); setTotalOperaciones('0'); setEditingId(null);
   };
 
   const deleteIncidencia = async (id) => {
     if (!user) return;
     if(window.confirm("¿Estás seguro de borrar este registro?")) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'incidencias', id));
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'incidencias', id));
+    }
+  };
+
+  // --- TRADUCTOR DE FECHA LARGA ---
+  const formatearFechaLarga = (fechaStr) => {
+    if (!fechaStr) return '';
+    try {
+      // Convierte "2026-04-26T12:30" al formato de texto largo
+      const date = new Date(fechaStr);
+      const opciones = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      };
+      // Resultado ej: "viernes 26 de abril de 2026 12:30 a.m."
+      return date.toLocaleDateString('es-MX', opciones).replace(/,/g, ''); 
+    } catch (e) {
+      return fechaStr;
     }
   };
 
   const incidenciasFiltradas = incidencias.filter(inc => {
-    // Convertimos la fecha interna (YYYY-MM-DD) al formato visual (DD/MM/YYYY) para que el buscador la detecte
-    const [y, m, d] = inc.fecha.split('-');
-    const fechaFormateada = `${d}/${m}/${y}`;
-    
+    const fechaFormateada = formatearFechaLarga(inc.fecha);
     return inc.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) || 
            inc.fecha.includes(searchTerm) || 
-           fechaFormateada.includes(searchTerm);
+           fechaFormateada.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   // --- IMPRESIÓN NATIVA ---
@@ -130,17 +159,19 @@ export default function App() {
   };
 
   const exportarExcel = () => {
-    const headers = ['Fecha', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Quejas', 'Total Operaciones'];
+    const headers = ['Fecha y Hora', 'Duración', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Quejas', 'Total Operaciones'];
     const csvRows = incidenciasFiltradas.map(inc => {
-      const [y, m, d] = inc.fecha.split('-');
+      const fechaTexto = formatearFechaLarga(inc.fecha);
       return [
-        `${d}/${m}/${y}`, `"${inc.descripcion.replace(/"/g, '""')}"`,
+        `"${fechaTexto}"`, 
+        `"${inc.duracion || '-'}"`, 
+        `"${inc.descripcion.replace(/"/g, '""')}"`,
         inc.enviadas, inc.recibidas, inc.devoluciones, inc.quejas, inc.totalOperaciones
       ].join(',');
     });
 
     const filaTotales = [
-      'Total General', '""', 
+      'Total General', '""', '""', // Tres columnas vacías para alinear los totales (Fecha, Duración, Desc)
       calcularTotal('enviadas').replace(/,/g, ''), calcularTotal('recibidas').replace(/,/g, ''),
       calcularTotal('devoluciones').replace(/,/g, ''), calcularTotal('quejas').replace(/,/g, ''),
       calcularTotal('totalOperaciones').replace(/,/g, '')
@@ -158,8 +189,8 @@ export default function App() {
     let msg = "*🚨 Reporte de Incidencias*\n\n";
     if (incidenciasFiltradas.length === 0) msg += "Sin incidencias que reportar.\n";
     incidenciasFiltradas.slice(0, 10).forEach(i => {
-      const [y, m, d] = i.fecha.split('-');
-      msg += `📅 *${d}/${m}/${y}*\n📝 ${i.descripcion}\n📉 Afectaciones: ${i.recibidas} | Quejas: ${i.quejas}\n\n`;
+      const fechaTexto = formatearFechaLarga(i.fecha);
+      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i.duracion || '-'}\n📝 ${i.descripcion}\n📉 Afectaciones: ${i.recibidas} | Quejas: ${i.quejas}\n\n`;
     });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -174,7 +205,6 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-800 print:bg-white print:h-auto print:block">
       
-      {/* 🟢 MAGIA AQUÍ: Forzamos al navegador a imprimir los colores de fondo */}
       <style>
         {`
           @media print {
@@ -186,14 +216,14 @@ export default function App() {
         `}
       </style>
 
-      {/* Header Fijo (Se oculta al imprimir con print:hidden) */}
+      {/* Header Fijo */}
       <div className="bg-[#0f2441] text-white px-4 pt-6 pb-4 flex justify-between items-center shadow-md z-20 print:hidden">
         <div>
           <h1 className="text-lg font-bold flex gap-2 items-center">
             <AlertTriangle className="text-red-400" size={20}/> 
             Incidencias SPEI
           </h1>
-          <p className="text-xs text-slate-300">Registro y Control</p>
+          <p className="text-xs text-slate-300">Registro y Control Compartido</p>
         </div>
         <div className="flex gap-2">
           {user ? (
@@ -207,7 +237,7 @@ export default function App() {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20 print:p-0 print:overflow-visible">
         
-        {/* Botón y Formulario (Se ocultan al imprimir con print:hidden) */}
+        {/* Botón Plegable para el Formulario */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:hidden">
           <button 
             onClick={() => { setShowForm(!showForm); if(editingId) limpiarFormulario(); }} 
@@ -224,10 +254,19 @@ export default function App() {
             <div className={`p-4 ${editingId ? 'bg-blue-50/50' : 'bg-white'}`}>
               <form onSubmit={handleSubmit} className="space-y-3 animate-in slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  
+                  {/* CAMBIO: datetime-local permite seleccionar fecha y hora */}
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500">FECHA</label>
-                    <input type="date" required className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={fecha} onChange={e=>setFecha(e.target.value)}/>
+                    <label className="text-[10px] font-bold text-slate-500">FECHA Y HORA</label>
+                    <input type="datetime-local" required className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={fecha} onChange={e=>setFecha(e.target.value)}/>
                   </div>
+                  
+                  {/* NUEVO CAMPO: Duración */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500">DURACIÓN</label>
+                    <input type="text" placeholder="Ej: 2 horas, 45 mins..." className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={duracion} onChange={e=>setDuracion(e.target.value)}/>
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="text-[10px] font-bold text-slate-500">DESCRIPCIÓN</label>
                     <input type="text" required placeholder="Ej: Error en el límite de transacciones..." className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={descripcion} onChange={e=>setDescripcion(e.target.value)}/>
@@ -275,7 +314,7 @@ export default function App() {
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar por fecha o descripción..." 
+              placeholder="Buscar por fecha, duración o descripción..." 
               className="w-full bg-white pl-10 pr-4 py-2 rounded-full text-sm border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -297,7 +336,6 @@ export default function App() {
         {/* ========================================================= */}
         <div className="bg-slate-100 p-2 space-y-4 print:bg-white print:p-0">
           
-          {/* Título Oficial del Reporte */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center print:border-none print:shadow-none print:px-0">
              <div>
                 <h2 className="text-xl font-bold text-[#0f2441] print:text-2xl">Reporte de Incidencias SPEI</h2>
@@ -306,7 +344,6 @@ export default function App() {
              {searchTerm && <div className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold border border-yellow-200 print:hidden">Filtro Activo</div>}
           </div>
 
-          {/* Tarjetas KPI (A color en PDF) */}
           {!loading && incidenciasFiltradas.length > 0 && (
             <div className="grid grid-cols-3 gap-3 print:gap-2">
                <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center print:shadow-none print:p-2">
@@ -327,14 +364,13 @@ export default function App() {
           {/* Contenedor de la Tabla */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
             
-            {/* print:overflow-visible permite que la tabla no se corte en el PDF */}
             <div className="overflow-x-auto print:overflow-visible">
-              <table className="w-full min-w-[900px] print:min-w-full border-collapse bg-white">
+              <table className="w-full min-w-[1000px] print:min-w-full border-collapse bg-white">
                 <thead>
-                  {/* Fila Azul Marino en PDF */}
                   <tr className="bg-[#1a365d] text-white text-[10px] uppercase tracking-wider text-center print:text-[9px]">
-                    <th className="border border-slate-600 p-3 w-24 print:p-1">Fecha</th>
-                    <th className="border border-slate-600 p-3 min-w-[250px] print:p-1">Descripción</th>
+                    <th className="border border-slate-600 p-3 w-40 print:p-1">Fecha</th>
+                    <th className="border border-slate-600 p-3 w-24 print:p-1">Duración</th>
+                    <th className="border border-slate-600 p-3 min-w-[200px] print:p-1">Descripción</th>
                     <th className="border border-slate-600 p-3 print:p-1">Enviadas</th>
                     <th className="border border-slate-600 p-3 print:p-1">Recibidas</th>
                     <th className="border border-slate-600 p-3 print:p-1">Devoluciones</th>
@@ -345,15 +381,23 @@ export default function App() {
                 </thead>
                 <tbody className="bg-white text-sm text-slate-700 text-center print:text-[10px]">
                   {loading ? (
-                    <tr><td colSpan="8" className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr>
+                    <tr><td colSpan="9" className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr>
                   ) : incidenciasFiltradas.length === 0 ? (
-                    <tr><td colSpan="8" className="p-8 text-center text-slate-400">No hay incidencias para mostrar.</td></tr>
+                    <tr><td colSpan="9" className="p-8 text-center text-slate-400">No hay incidencias para mostrar.</td></tr>
                   ) : (
                     incidenciasFiltradas.map((inc) => {
-                      const [y, m, d] = inc.fecha.split('-');
+                      // Usamos nuestra función mágica para formatear
+                      const fechaLarga = formatearFechaLarga(inc.fecha);
+                      
                       return (
                         <tr key={inc.id} className={`${editingId === inc.id ? 'bg-blue-50' : 'hover:bg-slate-50'} transition-colors print:bg-white print:hover:bg-white`}>
-                          <td className="border border-slate-300 p-2 print:p-1">{d}/{m}/{y}</td>
+                          
+                          {/* FECHA FORMATEADA: Capitalizamos la primera letra */}
+                          <td className="border border-slate-300 p-2 print:p-1 text-xs capitalize leading-tight">
+                            {fechaLarga}
+                          </td>
+                          
+                          <td className="border border-slate-300 p-2 print:p-1 font-medium">{inc.duracion || '-'}</td>
                           <td className="border border-slate-300 p-2 text-left print:p-1">{inc.descripcion}</td>
                           <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.enviadas}</td>
                           <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.recibidas}</td>
@@ -361,7 +405,6 @@ export default function App() {
                           <td className="border border-slate-300 p-2 print:p-1">{inc.quejas}</td>
                           <td className="border border-slate-300 p-2 print:p-1">{inc.totalOperaciones}</td>
                           
-                          {/* Botones ocultos al imprimir */}
                           <td className="border border-slate-300 p-1 print:hidden">
                             <div className="flex justify-center gap-2">
                               <button onClick={() => iniciarEdicion(inc)} className="text-blue-500 hover:bg-blue-100 p-1.5 rounded transition-colors" title="Editar"><Edit2 size={16}/></button>
@@ -373,10 +416,11 @@ export default function App() {
                     })
                   )}
                   
-                  {/* Fila de Totales (Conserva su fondo azul oscuro en PDF) */}
+                  {/* Fila de Totales */}
                   {!loading && incidenciasFiltradas.length > 0 && (
                     <tr className="bg-[#0f2441] text-white font-bold text-center text-sm print:text-[10px]">
-                      <td colSpan="2" className="border border-slate-600 p-3 uppercase text-right pr-4 print:p-1">Total General</td>
+                      {/* El colSpan ahora es 3 para cubrir (Fecha, Duración y Descripción) */}
+                      <td colSpan="3" className="border border-slate-600 p-3 uppercase text-right pr-4 print:p-1">Total General</td>
                       <td className="border border-slate-600 p-3 text-blue-200 print:p-1">{calcularTotal('enviadas')}</td>
                       <td className="border border-slate-600 p-3 text-orange-200 print:p-1">{calcularTotal('recibidas')}</td>
                       <td className="border border-slate-600 p-3 print:p-1">{calcularTotal('devoluciones')}</td>
