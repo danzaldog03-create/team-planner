@@ -131,12 +131,13 @@ export default function App() {
         margin:       0.3,
         filename:     `Reporte_SPEI_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, windowWidth: 1200 }, // Fuerza formato de computadora para evitar cortes
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // A4 Horizontal
+        html2canvas:  { scale: 2, useCORS: true, windowWidth: 1200 }, 
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } 
       };
 
       window.html2pdf().set(opt).from(element).save().then(() => {
-        // Terminó, regresamos la tabla a la normalidad
+        // Restaurar a la normalidad una vez descargado
+        element.style.width = originalWidth;
         if(tableContainer) tableContainer.classList.add('overflow-x-auto');
         setIsExporting(false);
       });
