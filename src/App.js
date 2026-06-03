@@ -38,7 +38,7 @@ export default function App() {
   const [enviadas, setEnviadas] = useState('NA');
   const [recibidas, setRecibidas] = useState('0');
   const [devoluciones, setDevoluciones] = useState('-');
-  const [quejas, setQuejas] = useState('0');
+  const [aclaraciones, setAclaraciones] = useState('0');
   const [totalOperaciones, setTotalOperaciones] = useState('0');
   
   // Estado para la edición
@@ -105,7 +105,7 @@ export default function App() {
     setEnviadas(inc.enviadas);
     setRecibidas(inc.recibidas); 
     setDevoluciones(inc.devoluciones); 
-    setQuejas(inc.quejas);
+    setAclaraciones(inc.quejas);
     setTotalOperaciones(inc.totalOperaciones); 
     setEditingId(inc.id);
     setShowForm(true); 
@@ -114,7 +114,7 @@ export default function App() {
 
   const limpiarFormulario = () => {
     setFecha(''); setDuracion(''); setDescripcion(''); setEnviadas('NA'); setRecibidas('0'); 
-    setDevoluciones('-'); setQuejas('0'); setTotalOperaciones('0'); setEditingId(null);
+    setDevoluciones('-'); setAclaraciones('0'); setTotalOperaciones('0'); setEditingId(null);
   };
 
   const deleteIncidencia = async (id) => {
@@ -159,21 +159,21 @@ export default function App() {
   };
 
   const exportarExcel = () => {
-    const headers = ['Fecha y Hora', 'Duración', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Quejas', 'Total Operaciones'];
+    const headers = ['Fecha y Hora', 'Duración', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Aclaraciones', 'Total Operaciones'];
     const csvRows = incidenciasFiltradas.map(inc => {
       const fechaTexto = formatearFechaLarga(inc.fecha);
       return [
         `"${fechaTexto}"`, 
         `"${inc.duracion || '-'}"`, 
         `"${inc.descripcion.replace(/"/g, '""')}"`,
-        inc.enviadas, inc.recibidas, inc.devoluciones, inc.quejas, inc.totalOperaciones
+        inc.enviadas, inc.recibidas, inc.devoluciones, inc.aclaraciones, inc.totalOperaciones
       ].join(',');
     });
 
     const filaTotales = [
       'Total General', '""', '""', // Tres columnas vacías para alinear los totales (Fecha, Duración, Desc)
       calcularTotal('enviadas').replace(/,/g, ''), calcularTotal('recibidas').replace(/,/g, ''),
-      calcularTotal('devoluciones').replace(/,/g, ''), calcularTotal('quejas').replace(/,/g, ''),
+      calcularTotal('devoluciones').replace(/,/g, ''), calcularTotal('aclaraciones').replace(/,/g, ''),
       calcularTotal('totalOperaciones').replace(/,/g, '')
     ].join(',');
 
