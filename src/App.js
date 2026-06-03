@@ -1,13 +1,9 @@
-```javascript
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertTriangle, Cloud, Loader2, MessageCircle, Edit2, Printer, X, FileSpreadsheet, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 
-// ---------------------------------------------------------
-// TUS CLAVES DE FIREBASE 
-// ---------------------------------------------------------
 const firebaseConfig = {
   apiKey: "AIzaSyBzSU1E9Vu2PuYNodwcEjK2V0qk0y2CCYk",
   authDomain: "certplanner-e48a0.firebaseapp.com",
@@ -28,24 +24,20 @@ export default function App() {
   const [incidencias, setIncidencias] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados de Interfaz
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Estados del Formulario
   const [fecha, setFecha] = useState('');
   const [duracion, setDuracion] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [enviadas, setEnviadas] = useState('NA');
   const [recibidas, setRecibidas] = useState('0');
   const [devoluciones, setDevoluciones] = useState('-');
-  const [aclaraciones, setAclaraciones] = useState('0'); // Se llama aclaraciones
+  const [aclaraciones, setAclaraciones] = useState('0'); 
   const [totalOperaciones, setTotalOperaciones] = useState('0');
   
-  // Estado para la edición
   const [editingId, setEditingId] = useState(null);
 
-  // 1. Autenticación
   useEffect(() => {
     const initAuth = async () => {
       try { await signInAnonymously(auth); } catch (e) { console.error("Error Auth:", e); }
@@ -55,48 +47,49 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Sincronización con Base de Datos
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'artifacts', appId, 'public', 'data', 'incidencias');
     const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => {
-        const data = d.data();
-        
-        // DEFENSA ABSOLUTA: Asegurarnos de que NINGÚN campo de suma venga vacío o nulo.
-        return { 
-          id: d.id, 
-          ...data,
-          enviadas: data.enviadas || '0',
-          recibidas: data.recibidas || '0',
-          devoluciones: data.devoluciones || '0',
-          // Rescatamos 'quejas' viejas, si no hay ni aclaraciones ni quejas, ponemos '0'
-          aclaraciones: data.aclaraciones !== undefined ? data.aclaraciones : (data.quejas !== undefined ? data.quejas : '0'),
-          totalOperaciones: data.totalOperaciones || '0',
-          duracion: data.duracion || 'No especificada'
-        };
-      });
-      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      setIncidencias(list);
+      try {
+        const list = snap.docs.map(d => {
+          const data = d.data() || {};
+          return { 
+            id: d.id, 
+            ...data,
+            enviadas: data?.enviadas || '0',
+            recibidas: data?.recibidas || '0',
+            devoluciones: data?.devoluciones || '0',
+            aclaraciones: data?.aclaraciones !== undefined ? data.aclaraciones : (data?.quejas || '0'),
+            totalOperaciones: data?.totalOperaciones || '0',
+            duracion: data?.duracion || '-',
+            descripcion: data?.descripcion || 'Sin descripción',
+            fecha: data?.fecha || ''
+          };
+        });
+        list.sort((a, b) => (b?.createdAt || 0) - (a?.createdAt || 0));
+        setIncidencias(list);
+      } catch (err) {
+        console.error("Error procesando datos:", err);
+      }
       setLoading(false);
     }, (e) => {
-      console.error("Error cargando datos:", e);
+      console.error("Error de Firebase:", e);
       setLoading(false);
     });
     return () => unsub();
   }, [user]);
 
-  // 3. Agregar o Actualizar
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!fecha || !descripcion.trim() || !user) {
-      alert("Por favor llena al menos la fecha y la descripción.");
+      alert("Por favor llena la fecha y la descripción.");
       return;
     }
 
     const data = {
       fecha, 
-      duracion: duracion || 'No especificada', 
+      duracion: duracion || '-', 
       descripcion, 
       enviadas: enviadas || '0', 
       recibidas: recibidas || '0', 
@@ -107,8 +100,7 @@ export default function App() {
 
     try {
       if (editingId) {
-        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'incidencias', editingId);
-        await updateDoc(docRef, data);
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'incidencias', editingId), data);
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'incidencias'), {
           ...data, createdAt: Date.now()
@@ -117,21 +109,21 @@ export default function App() {
       limpiarFormulario();
       setShowForm(false);
     } catch (e) { 
-      console.error(e); 
       alert("Error al guardar: " + e.message);
     }
   };
 
   const iniciarEdicion = (inc) => {
-    setFecha(inc.fecha || ''); 
-    setDuracion(inc.duracion || ''); 
-    setDescripcion(inc.descripcion || ''); 
-    setEnviadas(inc.enviadas || '0');
-    setRecibidas(inc.recibidas || '0'); 
-    setDevoluciones(inc.devoluciones || '0'); 
-    setAclaraciones(inc.aclaraciones || '0');
-    setTotalOperaciones(inc.totalOperaciones || '0'); 
-    setEditingId(inc.id);
+    if(!inc) return;
+    setFecha(inc?.fecha || ''); 
+    setDuracion(inc?.duracion || ''); 
+    setDescripcion(inc?.descripcion || ''); 
+    setEnviadas(inc?.enviadas || '0');
+    setRecibidas(inc?.recibidas || '0'); 
+    setDevoluciones(inc?.devoluciones || '0'); 
+    setAclaraciones(inc?.aclaraciones || '0');
+    setTotalOperaciones(inc?.totalOperaciones || '0'); 
+    setEditingId(inc?.id || null);
     setShowForm(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -142,7 +134,7 @@ export default function App() {
   };
 
   const deleteIncidencia = async (id) => {
-    if (!user) return;
+    if (!user || !id) return;
     if(window.confirm("¿Estás seguro de borrar este registro?")) {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'incidencias', id));
@@ -152,51 +144,42 @@ export default function App() {
     }
   };
 
-  // --- TRADUCTOR DE FECHA LARGA ---
   const formatearFechaLarga = (fechaStr) => {
     if (!fechaStr) return '';
     try {
       const date = new Date(fechaStr);
-      // Si la fecha es inválida (ej. texto basura), regresamos la original
       if (isNaN(date.getTime())) return fechaStr;
-
       const opciones = {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
         hour: 'numeric', minute: '2-digit', hour12: true
       };
       return date.toLocaleDateString('es-MX', opciones).replace(/,/g, ''); 
     } catch (e) {
-      return fechaStr;
+      return String(fechaStr);
     }
   };
 
-  const incidenciasFiltradas = incidencias.filter(inc => {
-    const desc = inc.descripcion ? inc.descripcion.toLowerCase() : '';
-    const dateStr = inc.fecha ? inc.fecha : '';
+  const incidenciasFiltradas = (incidencias || []).filter(inc => {
+    if(!inc) return false;
+    const desc = inc?.descripcion ? String(inc.descripcion).toLowerCase() : '';
+    const dateStr = inc?.fecha ? String(inc.fecha) : '';
     const fechaFormateada = formatearFechaLarga(dateStr).toLowerCase();
-    const search = searchTerm.toLowerCase();
+    const search = (searchTerm || '').toLowerCase();
 
     return desc.includes(search) || dateStr.includes(search) || fechaFormateada.includes(search);
   });
 
-  const imprimirNativo = () => {
-    window.print();
-  };
+  const imprimirNativo = () => window.print();
 
   const exportarExcel = () => {
     const headers = ['Fecha y Hora', 'Duración', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Aclaraciones', 'Total Operaciones'];
     const csvRows = incidenciasFiltradas.map(inc => {
-      const fechaTexto = formatearFechaLarga(inc.fecha);
-      const descLimpia = inc.descripcion ? inc.descripcion.replace(/"/g, '""') : '';
+      const fechaTexto = formatearFechaLarga(inc?.fecha);
+      const descLimpia = inc?.descripcion ? String(inc.descripcion).replace(/"/g, '""') : '';
       return [
-        `"${fechaTexto}"`, 
-        `"${inc.duracion || '-'}"`, 
-        `"${descLimpia}"`,
-        inc.enviadas || '0', 
-        inc.recibidas || '0', 
-        inc.devoluciones || '0', 
-        inc.aclaraciones || '0', 
-        inc.totalOperaciones || '0'
+        `"${fechaTexto}"`, `"${inc?.duracion || '-'}"`, `"${descLimpia}"`,
+        inc?.enviadas || '0', inc?.recibidas || '0', inc?.devoluciones || '0', 
+        inc?.aclaraciones || '0', inc?.totalOperaciones || '0'
       ].join(',');
     });
 
@@ -219,43 +202,23 @@ export default function App() {
     let msg = "*🚨 Reporte de Incidencias*\n\n";
     if (incidenciasFiltradas.length === 0) msg += "Sin incidencias que reportar.\n";
     incidenciasFiltradas.slice(0, 10).forEach(i => {
-      const fechaTexto = formatearFechaLarga(i.fecha);
-      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i.duracion || '-'}\n📝 ${i.descripcion || ''}\n📉 Afectaciones: ${i.recibidas || '0'} | Aclaraciones: ${i.aclaraciones || '0'}\n\n`;
+      const fechaTexto = formatearFechaLarga(i?.fecha);
+      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i?.duracion || '-'}\n📝 ${i?.descripcion || ''}\n📉 Afectaciones: ${i?.recibidas || '0'} | Aclaraciones: ${i?.aclaraciones || '0'}\n\n`;
     });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // 🛡️ DEFENSA CONTRA CRASH: Función de suma ultra-segura
   const calcularTotal = (campo) => {
     if (!incidenciasFiltradas || incidenciasFiltradas.length === 0) return '0';
-
     const suma = incidenciasFiltradas.reduce((acc, current) => {
       try {
-        // 1. Extraemos el valor, si es undefined o null usamos '0'
-        let valorBruto = current[campo];
-        if (valorBruto === undefined || valorBruto === null) {
-          valorBruto = '0';
-        }
-
-        // 2. Lo convertimos a texto seguro y le quitamos comas (ej: "1,000" -> "1000")
+        let valorBruto = current?.[campo];
+        if (valorBruto === undefined || valorBruto === null) valorBruto = '0';
         const valorTexto = String(valorBruto).replace(/,/g, '');
-
-        // 3. Intentamos convertirlo a número entero
         const numero = parseInt(valorTexto, 10);
-
-        // 4. Si falló (porque era un texto como "NA" o "-"), sumamos 0, si no, sumamos el número
-        if (isNaN(numero)) {
-          return acc;
-        }
-        return acc + numero;
-
-      } catch (error) {
-        // Si CUALQUIER cosa falla en esta fila, simplemente ignoramos y seguimos
-        return acc;
-      }
+        return isNaN(numero) ? acc : acc + numero;
+      } catch (error) { return acc; }
     }, 0);
-
-    // Devolvemos el total con formato de comas (ej: 1000 -> 1,000)
     return suma.toLocaleString('en-US');
   };
 
@@ -263,22 +226,14 @@ export default function App() {
     <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-800 print:bg-white print:h-auto print:block">
       
       <style>
-        {`
-          @media print {
-            body {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-          }
-        `}
+        {`@media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }`}
       </style>
 
-      {/* Header Fijo */}
+      {/* Header */}
       <div className="bg-[#0f2441] text-white px-4 pt-6 pb-4 flex justify-between items-center shadow-md z-20 print:hidden">
         <div>
           <h1 className="text-lg font-bold flex gap-2 items-center">
-            <AlertTriangle className="text-red-400" size={20}/> 
-            Incidencias SPEI
+            <AlertTriangle className="text-red-400" size={20}/> Incidencias SPEI
           </h1>
           <p className="text-xs text-slate-300">Registro y Control Compartido</p>
         </div>
@@ -294,12 +249,9 @@ export default function App() {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20 print:p-0 print:overflow-visible">
         
-        {/* Botón Plegable para el Formulario */}
+        {/* Botón Plegable */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:hidden">
-          <button 
-            onClick={() => { setShowForm(!showForm); if(editingId) limpiarFormulario(); }} 
-            className={`w-full p-4 flex justify-between items-center font-bold text-sm transition-colors ${showForm ? 'bg-slate-50 border-b border-slate-200 text-[#0f2441]' : 'text-slate-600'}`}
-          >
+          <button onClick={() => { setShowForm(!showForm); if(editingId) limpiarFormulario(); }} className={`w-full p-4 flex justify-between items-center font-bold text-sm transition-colors ${showForm ? 'bg-slate-50 border-b border-slate-200 text-[#0f2441]' : 'text-slate-600'}`}>
             <span className="flex items-center gap-2">
               {editingId ? <Edit2 size={18} className="text-blue-500" /> : <Plus size={18} className="text-[#0f2441]" />}
               {editingId ? 'Editando Incidencia' : 'Capturar Nueva Incidencia'}
@@ -311,86 +263,40 @@ export default function App() {
             <div className={`p-4 ${editingId ? 'bg-blue-50/50' : 'bg-white'}`}>
               <form onSubmit={handleSubmit} className="space-y-3 animate-in slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">FECHA Y HORA</label>
-                    <input type="datetime-local" required className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={fecha} onChange={e=>setFecha(e.target.value)}/>
-                  </div>
-                  
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">DURACIÓN</label>
-                    <input type="text" placeholder="Ej: 2 horas, 45 mins..." className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={duracion} onChange={e=>setDuracion(e.target.value)}/>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-bold text-slate-500">DESCRIPCIÓN</label>
-                    <input type="text" required placeholder="Ej: Error en el límite de transacciones..." className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={descripcion} onChange={e=>setDescripcion(e.target.value)}/>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">AFECTACIÓN ENVIADAS</label>
-                    <input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={enviadas} onChange={e=>setEnviadas(e.target.value)}/>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">AFECTACIÓN RECIBIDAS</label>
-                    <input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={recibidas} onChange={e=>setRecibidas(e.target.value)}/>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">DEVOLUCIONES RECIBIDAS</label>
-                    <input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={devoluciones} onChange={e=>setDevoluciones(e.target.value)}/>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">ACLARACIONES</label>
-                    <input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={aclaraciones} onChange={e=>setAclaraciones(e.target.value)}/>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">TOTAL DE OPERACIONES</label>
-                    <input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={totalOperaciones} onChange={e=>setTotalOperaciones(e.target.value)}/>
-                  </div>
+                  <div><label className="text-[10px] font-bold text-slate-500">FECHA Y HORA</label><input type="datetime-local" required className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={fecha} onChange={e=>setFecha(e.target.value)}/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500">DURACIÓN</label><input type="text" placeholder="Ej: 2 horas, 45 mins..." className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={duracion} onChange={e=>setDuracion(e.target.value)}/></div>
+                  <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500">DESCRIPCIÓN</label><input type="text" required placeholder="Ej: Error en el límite..." className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={descripcion} onChange={e=>setDescripcion(e.target.value)}/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500">AFECTACIÓN ENVIADAS</label><input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={enviadas} onChange={e=>setEnviadas(e.target.value)}/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500">AFECTACIÓN RECIBIDAS</label><input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={recibidas} onChange={e=>setRecibidas(e.target.value)}/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500">DEVOLUCIONES RECIBIDAS</label><input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={devoluciones} onChange={e=>setDevoluciones(e.target.value)}/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500">ACLARACIONES</label><input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={aclaraciones} onChange={e=>setAclaraciones(e.target.value)}/></div>
+                  <div><label className="text-[10px] font-bold text-slate-500">TOTAL DE OPERACIONES</label><input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={totalOperaciones} onChange={e=>setTotalOperaciones(e.target.value)}/></div>
                 </div>
-                
                 <div className="flex gap-2 mt-4 pt-2">
                   <button type="submit" disabled={!user} className={`flex-1 font-bold text-sm p-3 rounded-lg flex justify-center items-center gap-2 active:scale-95 transition-transform disabled:opacity-50 text-white shadow-md ${editingId ? 'bg-blue-600' : 'bg-[#0f2441] hover:bg-[#1a365d]'}`}>
-                    {editingId ? <><Edit2 size={18} /> Guardar Cambios</> : <><Plus size={18} /> Registrar Incidencia</>}
+                    {editingId ? <><Edit2 size={18} /> Guardar</> : <><Plus size={18} /> Registrar</>}
                   </button>
-                  {editingId && (
-                    <button type="button" onClick={() => { limpiarFormulario(); setShowForm(false); }} className="bg-red-50 text-red-600 font-bold text-sm p-3 rounded-lg flex justify-center items-center gap-2 active:scale-95 transition-transform hover:bg-red-100">
-                      <X size={18} /> Cancelar
-                    </button>
-                  )}
+                  {editingId && <button type="button" onClick={() => { limpiarFormulario(); setShowForm(false); }} className="bg-red-50 text-red-600 font-bold text-sm p-3 rounded-lg flex justify-center items-center gap-2 active:scale-95 transition-transform hover:bg-red-100"><X size={18} /> Cancelar</button>}
                 </div>
               </form>
             </div>
           )}
         </div>
 
-        {/* Buscador y Botones (Se ocultan al imprimir con print:hidden) */}
+        {/* Buscador */}
         <div className="flex flex-col md:flex-row justify-between gap-3 items-center mt-6 print:hidden">
           <div className="relative w-full md:w-auto flex-1 max-w-sm">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Buscar por fecha, duración o descripción..." 
-              className="w-full bg-white pl-10 pr-4 py-2 rounded-full text-sm border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <input type="text" placeholder="Buscar..." className="w-full bg-white pl-10 pr-4 py-2 rounded-full text-sm border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
-
           <div className="flex gap-2 w-full md:w-auto justify-end">
-            <button onClick={exportarExcel} disabled={incidenciasFiltradas.length === 0} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-colors disabled:opacity-50">
-              <FileSpreadsheet size={16} /> Excel
-            </button>
-            <button onClick={imprimirNativo} disabled={incidenciasFiltradas.length === 0} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-colors disabled:opacity-50">
-              <Printer size={16} /> Imprimir / PDF
-            </button>
+            <button onClick={exportarExcel} disabled={incidenciasFiltradas.length === 0} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-colors disabled:opacity-50"><FileSpreadsheet size={16} /> Excel</button>
+            <button onClick={imprimirNativo} disabled={incidenciasFiltradas.length === 0} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-colors disabled:opacity-50"><Printer size={16} /> Imprimir / PDF</button>
           </div>
         </div>
 
-        {/* ========================================================= */}
         {/* ÁREA DEL REPORTE */}
-        {/* ========================================================= */}
         <div className="bg-slate-100 p-2 space-y-4 print:bg-white print:p-0">
-          
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center print:border-none print:shadow-none print:px-0">
              <div>
                 <h2 className="text-xl font-bold text-[#0f2441] print:text-2xl">Reporte de Incidencias SPEI</h2>
@@ -416,9 +322,8 @@ export default function App() {
             </div>
           )}
 
-          {/* Contenedor de la Tabla */}
+          {/* Tabla */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
-            
             <div className="overflow-x-auto print:overflow-visible">
               <table className="w-full min-w-[1000px] print:min-w-full border-collapse bg-white">
                 <thead>
@@ -438,38 +343,27 @@ export default function App() {
                   {loading ? (
                     <tr><td colSpan="9" className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr>
                   ) : incidenciasFiltradas.length === 0 ? (
-                    <tr><td colSpan="9" className="p-8 text-center text-slate-400">No hay incidencias para mostrar.</td></tr>
+                    <tr><td colSpan="9" className="p-8 text-center text-slate-400">No hay incidencias.</td></tr>
                   ) : (
-                    incidenciasFiltradas.map((inc) => {
-                      const fechaLarga = formatearFechaLarga(inc.fecha);
-                      
-                      return (
-                        <tr key={inc.id} className={`${editingId === inc.id ? 'bg-blue-50' : 'hover:bg-slate-50'} transition-colors print:bg-white print:hover:bg-white`}>
-                          
-                          <td className="border border-slate-300 p-2 print:p-1 text-xs capitalize leading-tight">
-                            {fechaLarga}
-                          </td>
-                          
-                          <td className="border border-slate-300 p-2 print:p-1 font-medium">{inc.duracion || '-'}</td>
-                          <td className="border border-slate-300 p-2 text-left print:p-1">{inc.descripcion}</td>
-                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.enviadas || '0'}</td>
-                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.recibidas || '0'}</td>
-                          <td className="border border-slate-300 p-2 print:p-1">{inc.devoluciones || '0'}</td>
-                          <td className="border border-slate-300 p-2 print:p-1">{inc.aclaraciones || '0'}</td>
-                          <td className="border border-slate-300 p-2 print:p-1">{inc.totalOperaciones || '0'}</td>
-                          
-                          <td className="border border-slate-300 p-1 print:hidden">
-                            <div className="flex justify-center gap-2">
-                              <button onClick={() => iniciarEdicion(inc)} className="text-blue-500 hover:bg-blue-100 p-1.5 rounded transition-colors" title="Editar"><Edit2 size={16}/></button>
-                              <button onClick={() => deleteIncidencia(inc.id)} className="text-red-400 hover:bg-red-50 p-1.5 rounded transition-colors" title="Borrar"><Trash2 size={16}/></button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })
+                    incidenciasFiltradas.map((inc) => (
+                      <tr key={inc?.id} className={`${editingId === inc?.id ? 'bg-blue-50' : 'hover:bg-slate-50'} transition-colors print:bg-white`}>
+                        <td className="border border-slate-300 p-2 print:p-1 text-xs capitalize leading-tight">{formatearFechaLarga(inc?.fecha)}</td>
+                        <td className="border border-slate-300 p-2 print:p-1 font-medium">{inc?.duracion || '-'}</td>
+                        <td className="border border-slate-300 p-2 text-left print:p-1">{inc?.descripcion || ''}</td>
+                        <td className="border border-slate-300 p-2 font-medium print:p-1">{inc?.enviadas || '0'}</td>
+                        <td className="border border-slate-300 p-2 font-medium print:p-1">{inc?.recibidas || '0'}</td>
+                        <td className="border border-slate-300 p-2 print:p-1">{inc?.devoluciones || '0'}</td>
+                        <td className="border border-slate-300 p-2 print:p-1">{inc?.aclaraciones || '0'}</td>
+                        <td className="border border-slate-300 p-2 print:p-1">{inc?.totalOperaciones || '0'}</td>
+                        <td className="border border-slate-300 p-1 print:hidden">
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => iniciarEdicion(inc)} className="text-blue-500 hover:bg-blue-100 p-1.5 rounded" title="Editar"><Edit2 size={16}/></button>
+                            <button onClick={() => deleteIncidencia(inc?.id)} className="text-red-400 hover:bg-red-50 p-1.5 rounded" title="Borrar"><Trash2 size={16}/></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   )}
-                  
-                  {/* Fila de Totales */}
                   {!loading && incidenciasFiltradas.length > 0 && (
                     <tr className="bg-[#0f2441] text-white font-bold text-center text-sm print:text-[10px]">
                       <td colSpan="3" className="border border-slate-600 p-3 uppercase text-right pr-4 print:p-1">Total General</td>
