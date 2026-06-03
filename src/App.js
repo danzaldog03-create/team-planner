@@ -1,4 +1,4 @@
-```javascript
+
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertTriangle, Cloud, Loader2, MessageCircle, Edit2, Printer, X, FileSpreadsheet, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { initializeApp } from "firebase/app";
