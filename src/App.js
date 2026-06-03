@@ -78,7 +78,7 @@ export default function App() {
     const data = {
       fecha, 
       duracion: duracion || 'No especificada', 
-      descripcion, enviadas, recibidas, devoluciones, quejas, totalOperaciones
+      descripcion, enviadas, recibidas, devoluciones, aclaraciones, totalOperaciones
     };
 
     try {
@@ -105,7 +105,7 @@ export default function App() {
     setEnviadas(inc.enviadas);
     setRecibidas(inc.recibidas); 
     setDevoluciones(inc.devoluciones); 
-    setAclaraciones(inc.quejas);
+    setAclaraciones(inc.aclaraciones);
     setTotalOperaciones(inc.totalOperaciones); 
     setEditingId(inc.id);
     setShowForm(true); 
@@ -190,7 +190,7 @@ export default function App() {
     if (incidenciasFiltradas.length === 0) msg += "Sin incidencias que reportar.\n";
     incidenciasFiltradas.slice(0, 10).forEach(i => {
       const fechaTexto = formatearFechaLarga(i.fecha);
-      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i.duracion || '-'}\n📝 ${i.descripcion}\n📉 Afectaciones: ${i.recibidas} | Quejas: ${i.quejas}\n\n`;
+      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i.duracion || '-'}\n📝 ${i.descripcion}\n📉 Afectaciones: ${i.recibidas} | Aclaraciones: ${i.aclaraciones}\n\n`;
     });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -284,8 +284,8 @@ export default function App() {
                     <input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={devoluciones} onChange={e=>setDevoluciones(e.target.value)}/>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500">QUEJAS</label>
-                    <input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={quejas} onChange={e=>setQuejas(e.target.value)}/>
+                    <label className="text-[10px] font-bold text-slate-500">Aclaraciones</label>
+                    <input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={aclaraciones} onChange={e=>setAclaraciones(e.target.value)}/>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500">TOTAL DE OPERACIONES</label>
@@ -355,8 +355,8 @@ export default function App() {
                  <p className="text-2xl font-bold text-orange-600 print:text-lg">{calcularTotal('recibidas')}</p>
                </div>
                <div className="bg-white p-4 rounded-xl border border-red-200 shadow-sm text-center print:shadow-none print:p-2">
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px]">Quejas</p>
-                 <p className="text-2xl font-bold text-red-600 print:text-lg">{calcularTotal('quejas')}</p>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 print:text-[10px]">Aclaraciones</p>
+                 <p className="text-2xl font-bold text-red-600 print:text-lg">{calcularTotal('aclaraciones')}</p>
                </div>
             </div>
           )}
@@ -374,7 +374,7 @@ export default function App() {
                     <th className="border border-slate-600 p-3 print:p-1">Enviadas</th>
                     <th className="border border-slate-600 p-3 print:p-1">Recibidas</th>
                     <th className="border border-slate-600 p-3 print:p-1">Devoluciones</th>
-                    <th className="border border-slate-600 p-3 print:p-1">Quejas</th>
+                    <th className="border border-slate-600 p-3 print:p-1">Aclaraciones</th>
                     <th className="border border-slate-600 p-3 print:p-1">Total Op.</th>
                     <th className="border border-slate-600 p-3 w-20 print:hidden">Acciones</th>
                   </tr>
@@ -402,7 +402,7 @@ export default function App() {
                           <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.enviadas}</td>
                           <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.recibidas}</td>
                           <td className="border border-slate-300 p-2 print:p-1">{inc.devoluciones}</td>
-                          <td className="border border-slate-300 p-2 print:p-1">{inc.quejas}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{inc.aclaraciones}</td>
                           <td className="border border-slate-300 p-2 print:p-1">{inc.totalOperaciones}</td>
                           
                           <td className="border border-slate-300 p-1 print:hidden">
@@ -424,7 +424,7 @@ export default function App() {
                       <td className="border border-slate-600 p-3 text-blue-200 print:p-1">{calcularTotal('enviadas')}</td>
                       <td className="border border-slate-600 p-3 text-orange-200 print:p-1">{calcularTotal('recibidas')}</td>
                       <td className="border border-slate-600 p-3 print:p-1">{calcularTotal('devoluciones')}</td>
-                      <td className="border border-slate-600 p-3 text-red-200 print:p-1">{calcularTotal('quejas')}</td>
+                      <td className="border border-slate-600 p-3 text-red-200 print:p-1">{calcularTotal('aclaraciones')}</td>
                       <td className="border border-slate-600 p-3 print:p-1">{calcularTotal('totalOperaciones')}</td>
                       <td className="border border-slate-600 p-3 print:hidden"></td>
                     </tr>
