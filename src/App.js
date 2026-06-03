@@ -165,7 +165,6 @@ export default function App() {
     const dateStr = inc.fecha ? String(inc.fecha) : '';
     const fechaFormateada = formatearFechaLarga(dateStr).toLowerCase();
     const search = (searchTerm || '').toLowerCase();
-
     return desc.includes(search) || dateStr.includes(search) || fechaFormateada.includes(search);
   });
 
@@ -223,7 +222,7 @@ export default function App() {
   };
 
   const printStyles = {
-    __html: `@media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }`
+    __html: "@media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }"
   };
 
   return (
@@ -231,7 +230,6 @@ export default function App() {
       
       <style dangerouslySetInnerHTML={printStyles} />
 
-      {/* Header */}
       <div className="bg-[#0f2441] text-white px-4 pt-6 pb-4 flex justify-between items-center shadow-md z-20 print:hidden">
         <div>
           <h1 className="text-lg font-bold flex gap-2 items-center">
@@ -251,7 +249,6 @@ export default function App() {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20 print:p-0 print:overflow-visible">
         
-        {/* Botón Plegable */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:hidden">
           <button onClick={() => { setShowForm(!showForm); if(editingId) limpiarFormulario(); }} className={showForm ? "w-full p-4 flex justify-between items-center font-bold text-sm transition-colors bg-slate-50 border-b border-slate-200 text-[#0f2441]" : "w-full p-4 flex justify-between items-center font-bold text-sm transition-colors text-slate-600"}>
             <span className="flex items-center gap-2">
@@ -285,7 +282,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Buscador */}
         <div className="flex flex-col md:flex-row justify-between gap-3 items-center mt-6 print:hidden">
           <div className="relative w-full md:w-auto flex-1 max-w-sm">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
@@ -297,7 +293,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* ÁREA DEL REPORTE */}
         <div className="bg-slate-100 p-2 space-y-4 print:bg-white print:p-0">
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center print:border-none print:shadow-none print:px-0">
              <div>
@@ -324,7 +319,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Tabla */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
             <div className="overflow-x-auto print:overflow-visible">
               <table className="w-full min-w-[1000px] print:min-w-full border-collapse bg-white">
@@ -386,6 +380,3 @@ export default function App() {
     </div>
   );
 }
-
-
-```
