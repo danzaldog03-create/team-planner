@@ -1,3 +1,4 @@
+```javascript
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertTriangle, Cloud, Loader2, MessageCircle, Edit2, Printer, X, FileSpreadsheet, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { initializeApp } from "firebase/app";
@@ -33,12 +34,12 @@ export default function App() {
   
   // Estados del Formulario
   const [fecha, setFecha] = useState('');
-  const [duracion, setDuracion] = useState(''); // <-- NUEVO CAMPO: Duración
+  const [duracion, setDuracion] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [enviadas, setEnviadas] = useState('NA');
   const [recibidas, setRecibidas] = useState('0');
   const [devoluciones, setDevoluciones] = useState('-');
-  const [aclaraciones, setAclaraciones] = useState('0');
+  const [aclaraciones, setAclaraciones] = useState('0'); // Nuevo nombre
   const [totalOperaciones, setTotalOperaciones] = useState('0');
   
   // Estado para la edición
@@ -59,7 +60,15 @@ export default function App() {
     if (!user) return;
     const q = collection(db, 'artifacts', appId, 'public', 'data', 'incidencias');
     const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const list = snap.docs.map(d => {
+        const data = d.data();
+        return { 
+          id: d.id, 
+          ...data,
+          // SOLUCIÓN AL CRASH: Rescatamos el dato viejo de "quejas" si "aclaraciones" no existe aún en la base de datos
+          aclaraciones: data.aclaraciones !== undefined ? data.aclaraciones : (data.quejas || '0')
+        };
+      });
       list.sort((a, b) => b.createdAt - a.createdAt);
       setIncidencias(list);
       setLoading(false);
@@ -128,18 +137,11 @@ export default function App() {
   const formatearFechaLarga = (fechaStr) => {
     if (!fechaStr) return '';
     try {
-      // Convierte "2026-04-26T12:30" al formato de texto largo
       const date = new Date(fechaStr);
       const opciones = {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true
       };
-      // Resultado ej: "viernes 26 de abril de 2026 12:30 a.m."
       return date.toLocaleDateString('es-MX', opciones).replace(/,/g, ''); 
     } catch (e) {
       return fechaStr;
@@ -153,7 +155,6 @@ export default function App() {
            fechaFormateada.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  // --- IMPRESIÓN NATIVA ---
   const imprimirNativo = () => {
     window.print();
   };
@@ -171,7 +172,7 @@ export default function App() {
     });
 
     const filaTotales = [
-      'Total General', '""', '""', // Tres columnas vacías para alinear los totales (Fecha, Duración, Desc)
+      'Total General', '""', '""', 
       calcularTotal('enviadas').replace(/,/g, ''), calcularTotal('recibidas').replace(/,/g, ''),
       calcularTotal('devoluciones').replace(/,/g, ''), calcularTotal('aclaraciones').replace(/,/g, ''),
       calcularTotal('totalOperaciones').replace(/,/g, '')
@@ -195,9 +196,11 @@ export default function App() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
+  // SOLUCIÓN AL CRASH 2: Si el dato está dañado o vacío, fuerza un "0" en lugar de hacer colapsar el sistema.
   const calcularTotal = (campo) => {
     return incidenciasFiltradas.reduce((acc, current) => {
-      const valor = parseInt(current[campo].toString().replace(/,/g, ''));
+      const valorSeguro = current[campo] !== undefined ? current[campo] : '0';
+      const valor = parseInt(valorSeguro.toString().replace(/,/g, ''));
       return acc + (isNaN(valor) ? 0 : valor);
     }, 0).toLocaleString('en-US');
   };
@@ -255,13 +258,11 @@ export default function App() {
               <form onSubmit={handleSubmit} className="space-y-3 animate-in slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   
-                  {/* CAMBIO: datetime-local permite seleccionar fecha y hora */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500">FECHA Y HORA</label>
                     <input type="datetime-local" required className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={fecha} onChange={e=>setFecha(e.target.value)}/>
                   </div>
                   
-                  {/* NUEVO CAMPO: Duración */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500">DURACIÓN</label>
                     <input type="text" placeholder="Ej: 2 horas, 45 mins..." className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={duracion} onChange={e=>setDuracion(e.target.value)}/>
@@ -284,7 +285,7 @@ export default function App() {
                     <input type="text" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={devoluciones} onChange={e=>setDevoluciones(e.target.value)}/>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500">Aclaraciones</label>
+                    <label className="text-[10px] font-bold text-slate-500">ACLARACIONES</label>
                     <input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={aclaraciones} onChange={e=>setAclaraciones(e.target.value)}/>
                   </div>
                   <div>
@@ -332,7 +333,7 @@ export default function App() {
         </div>
 
         {/* ========================================================= */}
-        {/* ÁREA DEL REPORTE (Ajustado para verse a todo color en PDF)*/}
+        {/* ÁREA DEL REPORTE */}
         {/* ========================================================= */}
         <div className="bg-slate-100 p-2 space-y-4 print:bg-white print:p-0">
           
@@ -386,13 +387,11 @@ export default function App() {
                     <tr><td colSpan="9" className="p-8 text-center text-slate-400">No hay incidencias para mostrar.</td></tr>
                   ) : (
                     incidenciasFiltradas.map((inc) => {
-                      // Usamos nuestra función mágica para formatear
                       const fechaLarga = formatearFechaLarga(inc.fecha);
                       
                       return (
                         <tr key={inc.id} className={`${editingId === inc.id ? 'bg-blue-50' : 'hover:bg-slate-50'} transition-colors print:bg-white print:hover:bg-white`}>
                           
-                          {/* FECHA FORMATEADA: Capitalizamos la primera letra */}
                           <td className="border border-slate-300 p-2 print:p-1 text-xs capitalize leading-tight">
                             {fechaLarga}
                           </td>
@@ -419,7 +418,6 @@ export default function App() {
                   {/* Fila de Totales */}
                   {!loading && incidenciasFiltradas.length > 0 && (
                     <tr className="bg-[#0f2441] text-white font-bold text-center text-sm print:text-[10px]">
-                      {/* El colSpan ahora es 3 para cubrir (Fecha, Duración y Descripción) */}
                       <td colSpan="3" className="border border-slate-600 p-3 uppercase text-right pr-4 print:p-1">Total General</td>
                       <td className="border border-slate-600 p-3 text-blue-200 print:p-1">{calcularTotal('enviadas')}</td>
                       <td className="border border-slate-600 p-3 text-orange-200 print:p-1">{calcularTotal('recibidas')}</td>
@@ -438,3 +436,6 @@ export default function App() {
     </div>
   );
 }
+
+
+```
