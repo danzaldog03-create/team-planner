@@ -57,17 +57,17 @@ export default function App() {
           return { 
             id: d.id, 
             ...data,
-            enviadas: data?.enviadas || '0',
-            recibidas: data?.recibidas || '0',
-            devoluciones: data?.devoluciones || '0',
-            aclaraciones: data?.aclaraciones !== undefined ? data.aclaraciones : (data?.quejas || '0'),
-            totalOperaciones: data?.totalOperaciones || '0',
-            duracion: data?.duracion || '-',
-            descripcion: data?.descripcion || 'Sin descripción',
-            fecha: data?.fecha || ''
+            enviadas: data.enviadas || '0',
+            recibidas: data.recibidas || '0',
+            devoluciones: data.devoluciones || '0',
+            aclaraciones: data.aclaraciones !== undefined ? data.aclaraciones : (data.quejas || '0'),
+            totalOperaciones: data.totalOperaciones || '0',
+            duracion: data.duracion || '-',
+            descripcion: data.descripcion || 'Sin descripción',
+            fecha: data.fecha || ''
           };
         });
-        list.sort((a, b) => (b?.createdAt || 0) - (a?.createdAt || 0));
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setIncidencias(list);
       } catch (err) {
         console.error("Error procesando datos:", err);
@@ -115,15 +115,15 @@ export default function App() {
 
   const iniciarEdicion = (inc) => {
     if(!inc) return;
-    setFecha(inc?.fecha || ''); 
-    setDuracion(inc?.duracion || ''); 
-    setDescripcion(inc?.descripcion || ''); 
-    setEnviadas(inc?.enviadas || '0');
-    setRecibidas(inc?.recibidas || '0'); 
-    setDevoluciones(inc?.devoluciones || '0'); 
-    setAclaraciones(inc?.aclaraciones || '0');
-    setTotalOperaciones(inc?.totalOperaciones || '0'); 
-    setEditingId(inc?.id || null);
+    setFecha(inc.fecha || ''); 
+    setDuracion(inc.duracion || ''); 
+    setDescripcion(inc.descripcion || ''); 
+    setEnviadas(inc.enviadas || '0');
+    setRecibidas(inc.recibidas || '0'); 
+    setDevoluciones(inc.devoluciones || '0'); 
+    setAclaraciones(inc.aclaraciones || '0');
+    setTotalOperaciones(inc.totalOperaciones || '0'); 
+    setEditingId(inc.id || null);
     setShowForm(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -161,8 +161,8 @@ export default function App() {
 
   const incidenciasFiltradas = (incidencias || []).filter(inc => {
     if(!inc) return false;
-    const desc = inc?.descripcion ? String(inc.descripcion).toLowerCase() : '';
-    const dateStr = inc?.fecha ? String(inc.fecha) : '';
+    const desc = inc.descripcion ? String(inc.descripcion).toLowerCase() : '';
+    const dateStr = inc.fecha ? String(inc.fecha) : '';
     const fechaFormateada = formatearFechaLarga(dateStr).toLowerCase();
     const search = (searchTerm || '').toLowerCase();
 
@@ -174,12 +174,12 @@ export default function App() {
   const exportarExcel = () => {
     const headers = ['Fecha y Hora', 'Duración', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Aclaraciones', 'Total Operaciones'];
     const csvRows = incidenciasFiltradas.map(inc => {
-      const fechaTexto = formatearFechaLarga(inc?.fecha);
-      const descLimpia = inc?.descripcion ? String(inc.descripcion).replace(/"/g, '""') : '';
+      const fechaTexto = formatearFechaLarga(inc.fecha);
+      const descLimpia = inc.descripcion ? String(inc.descripcion).replace(/"/g, '""') : '';
       return [
-        `"${fechaTexto}"`, `"${inc?.duracion || '-'}"`, `"${descLimpia}"`,
-        inc?.enviadas || '0', inc?.recibidas || '0', inc?.devoluciones || '0', 
-        inc?.aclaraciones || '0', inc?.totalOperaciones || '0'
+        `"${fechaTexto}"`, `"${inc.duracion || '-'}"`, `"${descLimpia}"`,
+        inc.enviadas || '0', inc.recibidas || '0', inc.devoluciones || '0', 
+        inc.aclaraciones || '0', inc.totalOperaciones || '0'
       ].join(',');
     });
 
@@ -202,8 +202,8 @@ export default function App() {
     let msg = "*🚨 Reporte de Incidencias*\n\n";
     if (incidenciasFiltradas.length === 0) msg += "Sin incidencias que reportar.\n";
     incidenciasFiltradas.slice(0, 10).forEach(i => {
-      const fechaTexto = formatearFechaLarga(i?.fecha);
-      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i?.duracion || '-'}\n📝 ${i?.descripcion || ''}\n📉 Afectaciones: ${i?.recibidas || '0'} | Aclaraciones: ${i?.aclaraciones || '0'}\n\n`;
+      const fechaTexto = formatearFechaLarga(i.fecha);
+      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i.duracion || '-'}\n📝 ${i.descripcion || ''}\n📉 Afectaciones: ${i.recibidas || '0'} | Aclaraciones: ${i.aclaraciones || '0'}\n\n`;
     });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -212,7 +212,7 @@ export default function App() {
     if (!incidenciasFiltradas || incidenciasFiltradas.length === 0) return '0';
     const suma = incidenciasFiltradas.reduce((acc, current) => {
       try {
-        let valorBruto = current?.[campo];
+        let valorBruto = current[campo];
         if (valorBruto === undefined || valorBruto === null) valorBruto = '0';
         const valorTexto = String(valorBruto).replace(/,/g, '');
         const numero = parseInt(valorTexto, 10);
@@ -222,12 +222,14 @@ export default function App() {
     return suma.toLocaleString('en-US');
   };
 
+  const printStyles = {
+    __html: `@media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }`
+  };
+
   return (
     <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-800 print:bg-white print:h-auto print:block">
       
-      <style>
-        {`@media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }`}
-      </style>
+      <style dangerouslySetInnerHTML={printStyles} />
 
       {/* Header */}
       <div className="bg-[#0f2441] text-white px-4 pt-6 pb-4 flex justify-between items-center shadow-md z-20 print:hidden">
@@ -251,7 +253,7 @@ export default function App() {
         
         {/* Botón Plegable */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:hidden">
-          <button onClick={() => { setShowForm(!showForm); if(editingId) limpiarFormulario(); }} className={`w-full p-4 flex justify-between items-center font-bold text-sm transition-colors ${showForm ? 'bg-slate-50 border-b border-slate-200 text-[#0f2441]' : 'text-slate-600'}`}>
+          <button onClick={() => { setShowForm(!showForm); if(editingId) limpiarFormulario(); }} className={showForm ? "w-full p-4 flex justify-between items-center font-bold text-sm transition-colors bg-slate-50 border-b border-slate-200 text-[#0f2441]" : "w-full p-4 flex justify-between items-center font-bold text-sm transition-colors text-slate-600"}>
             <span className="flex items-center gap-2">
               {editingId ? <Edit2 size={18} className="text-blue-500" /> : <Plus size={18} className="text-[#0f2441]" />}
               {editingId ? 'Editando Incidencia' : 'Capturar Nueva Incidencia'}
@@ -260,7 +262,7 @@ export default function App() {
           </button>
 
           {showForm && (
-            <div className={`p-4 ${editingId ? 'bg-blue-50/50' : 'bg-white'}`}>
+            <div className={editingId ? "p-4 bg-blue-50/50" : "p-4 bg-white"}>
               <form onSubmit={handleSubmit} className="space-y-3 animate-in slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div><label className="text-[10px] font-bold text-slate-500">FECHA Y HORA</label><input type="datetime-local" required className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={fecha} onChange={e=>setFecha(e.target.value)}/></div>
@@ -273,7 +275,7 @@ export default function App() {
                   <div><label className="text-[10px] font-bold text-slate-500">TOTAL DE OPERACIONES</label><input type="number" className="w-full bg-white rounded-lg text-sm p-2.5 border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" value={totalOperaciones} onChange={e=>setTotalOperaciones(e.target.value)}/></div>
                 </div>
                 <div className="flex gap-2 mt-4 pt-2">
-                  <button type="submit" disabled={!user} className={`flex-1 font-bold text-sm p-3 rounded-lg flex justify-center items-center gap-2 active:scale-95 transition-transform disabled:opacity-50 text-white shadow-md ${editingId ? 'bg-blue-600' : 'bg-[#0f2441] hover:bg-[#1a365d]'}`}>
+                  <button type="submit" disabled={!user} className={editingId ? "flex-1 font-bold text-sm p-3 rounded-lg flex justify-center items-center gap-2 active:scale-95 transition-transform disabled:opacity-50 text-white shadow-md bg-blue-600" : "flex-1 font-bold text-sm p-3 rounded-lg flex justify-center items-center gap-2 active:scale-95 transition-transform disabled:opacity-50 text-white shadow-md bg-[#0f2441] hover:bg-[#1a365d]"}>
                     {editingId ? <><Edit2 size={18} /> Guardar</> : <><Plus size={18} /> Registrar</>}
                   </button>
                   {editingId && <button type="button" onClick={() => { limpiarFormulario(); setShowForm(false); }} className="bg-red-50 text-red-600 font-bold text-sm p-3 rounded-lg flex justify-center items-center gap-2 active:scale-95 transition-transform hover:bg-red-100"><X size={18} /> Cancelar</button>}
@@ -346,7 +348,7 @@ export default function App() {
                     <tr><td colSpan="9" className="p-8 text-center text-slate-400">No hay incidencias.</td></tr>
                   ) : (
                     incidenciasFiltradas.map((inc) => (
-                      <tr key={inc?.id} className={`${editingId === inc?.id ? 'bg-blue-50' : 'hover:bg-slate-50'} transition-colors print:bg-white`}>
+                      <tr key={inc?.id} className={editingId === inc?.id ? 'bg-blue-50 transition-colors print:bg-white' : 'hover:bg-slate-50 transition-colors print:bg-white'}>
                         <td className="border border-slate-300 p-2 print:p-1 text-xs capitalize leading-tight">{formatearFechaLarga(inc?.fecha)}</td>
                         <td className="border border-slate-300 p-2 print:p-1 font-medium">{inc?.duracion || '-'}</td>
                         <td className="border border-slate-300 p-2 text-left print:p-1">{inc?.descripcion || ''}</td>
