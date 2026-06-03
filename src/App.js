@@ -1,4 +1,4 @@
-
+```javascript
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertTriangle, Cloud, Loader2, MessageCircle, Edit2, Printer, X, FileSpreadsheet, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { initializeApp } from "firebase/app";
@@ -39,7 +39,7 @@ export default function App() {
   const [enviadas, setEnviadas] = useState('NA');
   const [recibidas, setRecibidas] = useState('0');
   const [devoluciones, setDevoluciones] = useState('-');
-  const [aclaraciones, setAclaraciones] = useState('0'); // Nuevo nombre
+  const [aclaraciones, setAclaraciones] = useState('0'); // Se llama aclaraciones
   const [totalOperaciones, setTotalOperaciones] = useState('0');
   
   // Estado para la edición
@@ -62,17 +62,27 @@ export default function App() {
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => {
         const data = d.data();
+        
+        // DEFENSA ABSOLUTA: Asegurarnos de que NINGÚN campo de suma venga vacío o nulo.
         return { 
           id: d.id, 
           ...data,
-          // SOLUCIÓN AL CRASH: Rescatamos el dato viejo de "quejas" si "aclaraciones" no existe aún en la base de datos
-          aclaraciones: data.aclaraciones !== undefined ? data.aclaraciones : (data.quejas || '0')
+          enviadas: data.enviadas || '0',
+          recibidas: data.recibidas || '0',
+          devoluciones: data.devoluciones || '0',
+          // Rescatamos 'quejas' viejas, si no hay ni aclaraciones ni quejas, ponemos '0'
+          aclaraciones: data.aclaraciones !== undefined ? data.aclaraciones : (data.quejas !== undefined ? data.quejas : '0'),
+          totalOperaciones: data.totalOperaciones || '0',
+          duracion: data.duracion || 'No especificada'
         };
       });
-      list.sort((a, b) => b.createdAt - a.createdAt);
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setIncidencias(list);
       setLoading(false);
-    }, (e) => setLoading(false));
+    }, (e) => {
+      console.error("Error cargando datos:", e);
+      setLoading(false);
+    });
     return () => unsub();
   }, [user]);
 
@@ -87,7 +97,12 @@ export default function App() {
     const data = {
       fecha, 
       duracion: duracion || 'No especificada', 
-      descripcion, enviadas, recibidas, devoluciones, aclaraciones, totalOperaciones
+      descripcion, 
+      enviadas: enviadas || '0', 
+      recibidas: recibidas || '0', 
+      devoluciones: devoluciones || '0', 
+      aclaraciones: aclaraciones || '0', 
+      totalOperaciones: totalOperaciones || '0'
     };
 
     try {
@@ -108,14 +123,14 @@ export default function App() {
   };
 
   const iniciarEdicion = (inc) => {
-    setFecha(inc.fecha); 
+    setFecha(inc.fecha || ''); 
     setDuracion(inc.duracion || ''); 
-    setDescripcion(inc.descripcion); 
-    setEnviadas(inc.enviadas);
-    setRecibidas(inc.recibidas); 
-    setDevoluciones(inc.devoluciones); 
-    setAclaraciones(inc.aclaraciones);
-    setTotalOperaciones(inc.totalOperaciones); 
+    setDescripcion(inc.descripcion || ''); 
+    setEnviadas(inc.enviadas || '0');
+    setRecibidas(inc.recibidas || '0'); 
+    setDevoluciones(inc.devoluciones || '0'); 
+    setAclaraciones(inc.aclaraciones || '0');
+    setTotalOperaciones(inc.totalOperaciones || '0'); 
     setEditingId(inc.id);
     setShowForm(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -129,7 +144,11 @@ export default function App() {
   const deleteIncidencia = async (id) => {
     if (!user) return;
     if(window.confirm("¿Estás seguro de borrar este registro?")) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'incidencias', id));
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'incidencias', id));
+      } catch (e) {
+        console.error("Error al borrar:", e);
+      }
     }
   };
 
@@ -138,6 +157,9 @@ export default function App() {
     if (!fechaStr) return '';
     try {
       const date = new Date(fechaStr);
+      // Si la fecha es inválida (ej. texto basura), regresamos la original
+      if (isNaN(date.getTime())) return fechaStr;
+
       const opciones = {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
         hour: 'numeric', minute: '2-digit', hour12: true
@@ -149,10 +171,12 @@ export default function App() {
   };
 
   const incidenciasFiltradas = incidencias.filter(inc => {
-    const fechaFormateada = formatearFechaLarga(inc.fecha);
-    return inc.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           inc.fecha.includes(searchTerm) || 
-           fechaFormateada.toLowerCase().includes(searchTerm.toLowerCase());
+    const desc = inc.descripcion ? inc.descripcion.toLowerCase() : '';
+    const dateStr = inc.fecha ? inc.fecha : '';
+    const fechaFormateada = formatearFechaLarga(dateStr).toLowerCase();
+    const search = searchTerm.toLowerCase();
+
+    return desc.includes(search) || dateStr.includes(search) || fechaFormateada.includes(search);
   });
 
   const imprimirNativo = () => {
@@ -163,11 +187,16 @@ export default function App() {
     const headers = ['Fecha y Hora', 'Duración', 'Descripción', 'Afectación Enviadas', 'Afectación Recibidas', 'Afectación Devoluciones', 'Aclaraciones', 'Total Operaciones'];
     const csvRows = incidenciasFiltradas.map(inc => {
       const fechaTexto = formatearFechaLarga(inc.fecha);
+      const descLimpia = inc.descripcion ? inc.descripcion.replace(/"/g, '""') : '';
       return [
         `"${fechaTexto}"`, 
         `"${inc.duracion || '-'}"`, 
-        `"${inc.descripcion.replace(/"/g, '""')}"`,
-        inc.enviadas, inc.recibidas, inc.devoluciones, inc.aclaraciones, inc.totalOperaciones
+        `"${descLimpia}"`,
+        inc.enviadas || '0', 
+        inc.recibidas || '0', 
+        inc.devoluciones || '0', 
+        inc.aclaraciones || '0', 
+        inc.totalOperaciones || '0'
       ].join(',');
     });
 
@@ -191,18 +220,43 @@ export default function App() {
     if (incidenciasFiltradas.length === 0) msg += "Sin incidencias que reportar.\n";
     incidenciasFiltradas.slice(0, 10).forEach(i => {
       const fechaTexto = formatearFechaLarga(i.fecha);
-      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i.duracion || '-'}\n📝 ${i.descripcion}\n📉 Afectaciones: ${i.recibidas} | Aclaraciones: ${i.aclaraciones}\n\n`;
+      msg += `📅 *${fechaTexto}*\n⏱️ Duración: ${i.duracion || '-'}\n📝 ${i.descripcion || ''}\n📉 Afectaciones: ${i.recibidas || '0'} | Aclaraciones: ${i.aclaraciones || '0'}\n\n`;
     });
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // SOLUCIÓN AL CRASH 2: Si el dato está dañado o vacío, fuerza un "0" en lugar de hacer colapsar el sistema.
+  // 🛡️ DEFENSA CONTRA CRASH: Función de suma ultra-segura
   const calcularTotal = (campo) => {
-    return incidenciasFiltradas.reduce((acc, current) => {
-      const valorSeguro = current[campo] !== undefined ? current[campo] : '0';
-      const valor = parseInt(valorSeguro.toString().replace(/,/g, ''));
-      return acc + (isNaN(valor) ? 0 : valor);
-    }, 0).toLocaleString('en-US');
+    if (!incidenciasFiltradas || incidenciasFiltradas.length === 0) return '0';
+
+    const suma = incidenciasFiltradas.reduce((acc, current) => {
+      try {
+        // 1. Extraemos el valor, si es undefined o null usamos '0'
+        let valorBruto = current[campo];
+        if (valorBruto === undefined || valorBruto === null) {
+          valorBruto = '0';
+        }
+
+        // 2. Lo convertimos a texto seguro y le quitamos comas (ej: "1,000" -> "1000")
+        const valorTexto = String(valorBruto).replace(/,/g, '');
+
+        // 3. Intentamos convertirlo a número entero
+        const numero = parseInt(valorTexto, 10);
+
+        // 4. Si falló (porque era un texto como "NA" o "-"), sumamos 0, si no, sumamos el número
+        if (isNaN(numero)) {
+          return acc;
+        }
+        return acc + numero;
+
+      } catch (error) {
+        // Si CUALQUIER cosa falla en esta fila, simplemente ignoramos y seguimos
+        return acc;
+      }
+    }, 0);
+
+    // Devolvemos el total con formato de comas (ej: 1000 -> 1,000)
+    return suma.toLocaleString('en-US');
   };
 
   return (
@@ -398,11 +452,11 @@ export default function App() {
                           
                           <td className="border border-slate-300 p-2 print:p-1 font-medium">{inc.duracion || '-'}</td>
                           <td className="border border-slate-300 p-2 text-left print:p-1">{inc.descripcion}</td>
-                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.enviadas}</td>
-                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.recibidas}</td>
-                          <td className="border border-slate-300 p-2 print:p-1">{inc.devoluciones}</td>
-                          <td className="border border-slate-300 p-2 print:p-1">{inc.aclaraciones}</td>
-                          <td className="border border-slate-300 p-2 print:p-1">{inc.totalOperaciones}</td>
+                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.enviadas || '0'}</td>
+                          <td className="border border-slate-300 p-2 font-medium print:p-1">{inc.recibidas || '0'}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{inc.devoluciones || '0'}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{inc.aclaraciones || '0'}</td>
+                          <td className="border border-slate-300 p-2 print:p-1">{inc.totalOperaciones || '0'}</td>
                           
                           <td className="border border-slate-300 p-1 print:hidden">
                             <div className="flex justify-center gap-2">
